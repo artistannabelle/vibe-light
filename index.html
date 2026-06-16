@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>编程红绿灯 · Vibe Light</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f14;
+      --surface: rgba(255,255,255,0.03);
+      --surface-2: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f4f8;
+      --muted: #7a8799;
+      --dim: #4a5568;
+      --red: #ff5f57;
+      --yellow: #febc2e;
+      --green: #28c840;
+      --glow-y: rgba(254,188,46,0.18);
+      --glow-r: rgba(255,95,87,0.15);
+      --glow-g: rgba(40,200,64,0.12);
+      --radius: 16px;
+      --radius-lg: 24px;
+      --font: "Inter", "Noto Sans SC", -apple-system, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── 背景光晕 ── */
+    .ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .ambient::before {
+      content: "";
+      position: absolute;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 600px;
+      background: radial-gradient(ellipse, var(--glow-y) 0%, transparent 70%);
+      opacity: 0.7;
+    }
+    .ambient::after {
+      content: "";
+      position: absolute;
+      bottom: 10%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--glow-g) 0%, transparent 70%);
+      opacity: 0.5;
+    }
+
+    /* ── 导航 ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(11,15,20,0.7);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    nav.scrolled { border-bottom-color: var(--border); }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-brand svg { border-radius: 6px; }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── 通用容器 ── */
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    section {
+      padding: 120px 0;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--yellow);
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+
+    .section-desc {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.75;
+    }
+
+    /* ── ① Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 140px 40px 100px;
+      position: relative;
+    }
+
+    .hero-icon-wrap {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    .hero-icon-glow {
+      position: absolute;
+      inset: -40px;
+      background: radial-gradient(circle, var(--glow-y) 0%, transparent 65%);
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+
+    .hero-icon {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      border-radius: 22.5%;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(254,188,46,0.15),
+        0 32px 80px rgba(0,0,0,0.5),
+        0 0 60px rgba(254,188,46,0.1);
+    }
+
+    .hero-en {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .hero-cn {
+      font-size: clamp(3rem, 7vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin-bottom: 24px;
+      background: linear-gradient(180deg, #fff 30%, rgba(255,255,255,0.65));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-slogan {
+      font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+      color: var(--muted);
+      font-weight: 400;
+      margin-bottom: 32px;
+    }
+    .hero-slogan em {
+      font-style: normal;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 48px;
+    }
+
+    .tag {
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .hero-scroll {
+      font-size: 12px;
+      color: var(--dim);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: float 2.5s ease-in-out infinite;
+    }
+    .hero-scroll svg { opacity: 0.4; }
+
+    /* ── 下载 & 安装 & 注意 ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 40px;
+    }
+    @media (max-width: 768px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+    .step {
+      padding: 24px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(254,188,46,0.15);
+      color: var(--yellow);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .step h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .step p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 40px;
+    }
+    @media (max-width: 768px) {
+      .notes-grid { grid-template-columns: 1fr; }
+    }
+    .note-card {
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .note-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .note-card p, .note-card li {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .note-card ul { padding-left: 18px; margin-top: 8px; }
+    .note-card a { color: var(--yellow); text-decoration: none; }
+    .note-card a:hover { text-decoration: underline; }
+
+    .download-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 28px 32px;
+      margin-top: 40px;
+      background: linear-gradient(135deg, rgba(254,188,46,0.1) 0%, rgba(255,255,255,0.03) 100%);
+      border: 1px solid rgba(254,188,46,0.2);
+      border-radius: var(--radius-lg);
+    }
+    .download-banner h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .download-banner p { font-size: 14px; color: var(--muted); }
+    .download-meta { font-size: 12px; color: var(--dim); margin-top: 8px; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(6px); }
+    }
+
+    /* ── ② 产品定义 ── */
+    .define-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    @media (max-width: 768px) {
+      .define-grid { grid-template-columns: 1fr; gap: 40px; }
+    }
+
+    .define-visual {
+      position: relative;
+      aspect-ratio: 1;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .define-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+    }
+    .define-ring:nth-child(2) { inset: 12%; opacity: 0.5; }
+    .define-ring:nth-child(3) { inset: 24%; opacity: 0.25; }
+
+    .define-lights {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+
+    .define-light {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .light-bulb {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      position: relative;
+    }
+    .light-bulb::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      opacity: 0;
+    }
+    .light-bulb--r { background: var(--red); box-shadow: 0 0 24px var(--red); }
+    .light-bulb--y {
+      background: var(--yellow);
+      box-shadow: 0 0 32px var(--yellow);
+      animation: pulse-y 2s ease-in-out infinite;
+    }
+    .light-bulb--g { background: var(--green); box-shadow: 0 0 24px var(--green); opacity: 0.35; }
+
+    @keyframes pulse-y {
+      0%, 100% { box-shadow: 0 0 20px var(--yellow); }
+      50% { box-shadow: 0 0 40px var(--yellow), 0 0 60px rgba(254,188,46,0.25); }
+    }
+
+    .light-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.4;
+    }
+    .light-label strong {
+      display: block;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .define-keywords {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 600px) {
+      .define-keywords { grid-template-columns: 1fr; }
+    }
+
+    .kw {
+      padding: 20px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+    .kw-dot { font-size: 20px; margin-bottom: 8px; }
+    .kw-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .kw-desc { font-size: 12px; color: var(--muted); }
+
+    /* ── ③ 痛点解法 ── */
+    .pain-section { padding-top: 80px; }
+
+    .pain-scene {
+      font-size: 18px;
+      color: #c8d0dc;
+      max-width: 640px;
+      line-height: 1.8;
+      margin-bottom: 56px;
+      padding-left: 20px;
+      border-left: 2px solid var(--yellow);
+    }
+    .pain-scene strong { color: var(--text); }
+
+    .pain-table {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .pain-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--bg);
+    }
+
+    @media (max-width: 640px) {
+      .pain-row { grid-template-columns: 1fr; }
+    }
+
+    .pain-row--head {
+      background: var(--surface);
+    }
+    .pain-row--head .pain-cell {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      padding: 16px 28px;
+    }
+
+    .pain-cell {
+      padding: 24px 28px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .pain-cell--problem {
+      color: var(--muted);
+      border-right: 1px solid var(--border);
+    }
+    @media (max-width: 640px) {
+      .pain-cell--problem { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+
+    .pain-cell--solution {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .pain-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dim);
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    /* ── 桌面模拟 ── */
+    .desktop-demo {
+      margin-bottom: 40px;
+    }
+    .desktop-demo-caption {
+      font-size: 12px;
+      color: var(--dim);
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .desktop-scene {
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+      background: #1a2744;
+    }
+    .mac-menubar {
+      height: 28px;
+      background: rgba(30,30,30,0.92);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.75);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .mac-menubar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mac-menubar-light {
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(254,188,46,0.12);
+      color: var(--yellow);
+      font-weight: 600;
+    }
+    .desktop-wallpaper {
+      position: relative;
+      height: 340px;
+      background:
+        radial-gradient(ellipse 80% 60% at 30% 20%, rgba(254,188,46,0.08) 0%, transparent 55%),
+        linear-gradient(160deg, #2d4a6e 0%, #1a2f4a 45%, #0f1a28 100%);
+    }
+    @media (max-width: 600px) {
+      .desktop-wallpaper { height: 280px; }
+    }
+    .fake-cursor-win {
+      position: absolute;
+      top: 18%;
+      left: 8%;
+      width: 58%;
+      height: 62%;
+      background: #1e1e1e;
+      border-radius: 8px;
+      border: 1px solid #333;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      opacity: 0.45;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .fake-win-title {
+      height: 28px;
+      background: #323233;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 5px;
+      font-size: 10px;
+      color: #888;
+    }
+    .fake-win-title .wd { width: 8px; height: 8px; border-radius: 50%; }
+    .fake-win-title .wd.r { background: #ff5f57; }
+    .fake-win-title .wd.y { background: #febc2e; }
+    .fake-win-title .wd.g { background: #28c840; }
+    .fake-win-body {
+      flex: 1;
+      padding: 12px;
+      font-size: 10px;
+      color: #555;
+      line-height: 1.7;
+      font-family: "Inter", monospace;
+    }
+    .fake-feishu-win {
+      position: absolute;
+      top: 10%;
+      left: 22%;
+      width: 68%;
+      height: 72%;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.12);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .fake-feishu-title {
+      height: 36px;
+      background: #f5f6f7;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 6px;
+      font-size: 11px;
+      color: #374151;
+      font-weight: 500;
+    }
+    .fake-feishu-body {
+      flex: 1;
+      padding: 20px;
+      background: #fafafa;
+    }
+    .fake-feishu-line {
+      height: 8px;
+      border-radius: 4px;
+      background: #e5e7eb;
+      margin-bottom: 10px;
+    }
+    .fake-feishu-line:nth-child(1) { width: 40%; }
+    .fake-feishu-line:nth-child(2) { width: 85%; }
+    .fake-feishu-line:nth-child(3) { width: 70%; }
+    .fake-feishu-line:nth-child(4) { width: 55%; margin-top: 20px; }
+    .desktop-float-bar {
+      position: absolute;
+      bottom: 28px;
+      right: 24px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(8,10,16,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 24px rgba(254,188,46,0.15);
+    }
+    .desktop-float-bar .mock-dots { gap: 6px; }
+    .desktop-float-bar .mock-dot { width: 10px; height: 10px; }
+    .desktop-float-bar .mock-dot.y.on {
+      animation: pulse-y 2s ease-in-out infinite;
+      box-shadow: 0 0 12px var(--yellow), 0 0 24px rgba(254,188,46,0.35);
+    }
+    .desktop-float-text {
+      font-size: 11px;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap;
+    }
+    .desktop-float-tok {
+      font-size: 10px;
+      color: var(--dim);
+      padding-left: 6px;
+      border-left: 1px solid rgba(255,255,255,0.1);
+    }
+    .desktop-float-badge {
+      position: absolute;
+      top: -8px;
+      right: -4px;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 100px;
+      background: rgba(254,188,46,0.2);
+      border: 1px solid rgba(254,188,46,0.4);
+      color: var(--yellow);
+    }
+
+    /* ── ④ 核心功能 ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+
+    .feat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .feat-card:hover {
+      border-color: rgba(255,255,255,0.14);
+      transform: translateY(-2px);
+    }
+
+    .feat-mock {
+      height: 200px;
+      background: #060810;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feat-body {
+      padding: 24px 28px 28px;
+    }
+
+    .feat-body h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feat-body p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* Mock: 角落预览条 */
+    .mock-corner {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px;
+      backdrop-filter: blur(8px);
+    }
+    .mock-dots { display: flex; gap: 5px; }
+    .mock-dot {
+      width: 9px; height: 9px; border-radius: 50%; opacity: 0.25;
+    }
+    .mock-dot.on { opacity: 1; }
+    .mock-dot.r { background: var(--red); box-shadow: 0 0 8px var(--red); }
+    .mock-dot.y { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); animation: pulse-y 2s ease-in-out infinite; }
+    .mock-dot.g { background: var(--green); }
+    .mock-corner span { font-size: 11px; color: rgba(255,255,255,0.6); }
+
+    /* Mock: 置顶层级 */
+    .mock-layers {
+      position: relative;
+      width: 75%;
+      height: 130px;
+    }
+    .mock-layer {
+      position: absolute;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .mock-layer--back {
+      inset: 20px 24px 0 0;
+      background: rgba(255,255,255,0.04);
+    }
+    .mock-layer--mid {
+      inset: 10px 12px 10px 12px;
+      background: rgba(255,255,255,0.06);
+    }
+    .mock-layer--top {
+      bottom: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(0,0,0,0.9);
+      border-radius: 100px;
+      border-color: rgba(254,188,46,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    /* Mock: 呼吸灯 + 授权 */
+    .mock-glow-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .mock-glow-dots {
+      display: flex;
+      gap: 16px;
+    }
+    .mock-glow-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      opacity: 0.25;
+    }
+    .mock-glow-dot.r { background: var(--red); }
+    .mock-glow-dot.y {
+      background: var(--yellow);
+      opacity: 1;
+      animation: pulse-y 2s ease-in-out infinite;
+      box-shadow: 0 0 20px var(--yellow), 0 0 40px rgba(254,188,46,0.25);
+    }
+    .mock-glow-dot.g { background: var(--green); }
+
+    /* Mock: Token stats */
+    .mock-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 80%;
+    }
+    .mock-stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .mock-stat-row span:first-child { font-size: 12px; color: var(--muted); }
+    .mock-stat-row span:last-child {
+      font-size: 14px;
+      font-weight: 600;
+      font-family: "Inter", monospace;
+      color: var(--text);
+    }
+
+    /* Mock: 授权按钮 */
+    .mock-auth {
+      display: flex;
+      gap: 12px;
+    }
+    .mock-auth-btn {
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .mock-auth-btn.yes { background: rgba(40,200,64,0.15); color: var(--green); border-color: rgba(40,200,64,0.35); }
+    .mock-auth-btn.no { background: rgba(255,95,87,0.1); color: var(--red); border-color: rgba(255,95,87,0.25); }
+
+    /* ── ⑤ 收尾 ── */
+    .footer {
+      text-align: center;
+      padding: 100px 40px 80px;
+      position: relative;
+    }
+
+    .footer-glow {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 300px;
+      background: radial-gradient(ellipse, var(--glow-y) 0%, transparent 70%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .footer-slogan {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .footer-sub {
+      font-size: 16px;
+      color: var(--muted);
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .footer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      position: relative;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      font-family: var(--font);
+    }
+    .btn--primary {
+      background: var(--yellow);
+      color: #0b0f14;
+    }
+    .btn--primary:hover { background: #ffd04a; transform: translateY(-1px); }
+    .btn--ghost {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn--ghost:hover { border-color: rgba(255,255,255,0.2); }
+
+    .footer-note {
+      font-size: 12px;
+      color: var(--dim);
+      position: relative;
+    }
+
+    /* ── 分隔线 ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient" aria-hidden="true"></div>
+
+  <nav id="nav">
+    <a class="nav-brand" href="#">
+      <svg width="24" height="24" viewBox="0 0 512 512"><use href="#icon"/></svg>
+      Vibe Light
+    </a>
+    <ul class="nav-links">
+      <li><a href="#define">产品</a></li>
+      <li><a href="#install">安装</a></li>
+      <li><a href="#notes">注意</a></li>
+      <li><a href="https://github.com/artistannabelle/vibe-light" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <!-- ① Hero -->
+  <header class="hero">
+    <div class="hero-icon-wrap">
+      <div class="hero-icon-glow" aria-hidden="true"></div>
+      <svg class="hero-icon" viewBox="0 0 512 512"><use href="#icon"/></svg>
+    </div>
+    <p class="hero-en">Vibe Light</p>
+    <h1 class="hero-cn">编程红绿灯</h1>
+    <p class="hero-slogan"><em>AI 在干什么，余光就知道。</em></p>
+    <div class="hero-tags">
+      <span class="tag">macOS 12+</span>
+      <span class="tag">Windows</span>
+      <span class="tag">Cursor</span>
+    </div>
+    <div class="hero-actions">
+      <a class="btn btn--primary" href="https://github.com/artistannabelle/vibe-light/releases/latest" target="_blank" rel="noopener">立即下载</a>
+      <a class="btn btn--ghost" href="#install">安装说明</a>
+    </div>
+    <div class="hero-scroll">
+      <span>向下滚动</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </div>
+  </header>
+
+  <div class="divider"></div>
+
+  <!-- ② 产品定义 -->
+  <section id="define">
+    <div class="wrap">
+      <p class="section-label">产品</p>
+      <h2 class="section-title">把 Coding 的状态，<br>翻译成一盏灯</h2>
+      <div class="define-grid">
+        <div>
+          <p class="section-desc" style="margin-bottom:0">
+            读代码编辑器进程，编成 🔴🟡🟢 三盏灯。<br><br>
+            屏幕角落余光可见；菜单栏右上角同步——不用切回 Cursor。
+          </p>
+          <div class="define-keywords">
+            <div class="kw">
+              <div class="kw-dot">🟢</div>
+              <div class="kw-title">空闲</div>
+              <div class="kw-desc">无任务</div>
+            </div>
+            <div class="kw">
+              <div class="kw-dot">🟡</div>
+              <div class="kw-title">执行中</div>
+              <div class="kw-desc">你可以做别的事</div>
+            </div>
+            <div class="kw">
+              <div class="kw-dot">🔴</div>
+              <div class="kw-title">待确认</div>
+              <div class="kw-desc">等你点确认</div>
+            </div>
+          </div>
+        </div>
+        <div class="define-visual" aria-hidden="true">
+          <div class="define-ring"></div>
+          <div class="define-ring"></div>
+          <div class="define-ring"></div>
+          <div class="define-lights">
+            <div class="define-light">
+              <div class="light-bulb light-bulb--g"></div>
+            </div>
+            <div class="define-light">
+              <div class="light-bulb light-bulb--y"></div>
+            </div>
+            <div class="define-light">
+              <div class="light-bulb light-bulb--r"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ②½ 下载与安装 -->
+  <section id="install">
+    <div class="wrap">
+      <p class="section-label">快速开始</p>
+      <h2 class="section-title">下载安装，三步上手</h2>
+
+      <div class="download-banner">
+        <div>
+          <h3>Vibe Light v1.3</h3>
+          <p>macOS · Windows · 含 App 与一键安装脚本</p>
+          <p class="download-meta">macOS 12+ 或 Windows 10/11 · Cursor · Python 3</p>
+        </div>
+        <a class="btn btn--primary" href="https://github.com/artistannabelle/vibe-light/releases/latest" target="_blank" rel="noopener">前往 GitHub 下载</a>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>下载</h3>
+          <p>在 GitHub 选 <strong>macOS</strong> 或 <strong>Windows</strong> 的 zip，解压。</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>安装</h3>
+          <p>双击安装脚本<br>mac：<strong>安装 Vibe Light.command</strong><br>Win：<strong>安装 Vibe Light.bat</strong></p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>启用</h3>
+          <p>重启 Cursor，打开 Vibe Light。<br>mac 还需在「辅助功能」里勾选一次。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ②¾ 注意事项 -->
+  <section id="notes">
+    <div class="wrap">
+      <p class="section-label">注意事项</p>
+      <h2 class="section-title">使用前请知晓</h2>
+      <p class="section-desc">若希望上架 Mac App Store，欢迎在 <a href="https://github.com/artistannabelle/vibe-light/issues" target="_blank" rel="noopener" style="color:var(--yellow);text-decoration:none">GitHub</a> 留言。</p>
+
+      <div class="notes-grid">
+        <div class="note-card">
+          <h3>🔒 隐私与安全</h3>
+          <ul>
+            <li>只读取 Cursor <strong>本机数据</strong>，不上传云端</li>
+            <li>一键授权需要<strong>辅助功能</strong>权限</li>
+            <li>仅供个人学习使用，未经授权请勿商用</li>
+          </ul>
+        </div>
+        <div class="note-card">
+          <h3>⚠️ 常见问题</h3>
+          <ul>
+            <li>灯不亮：确认 Cursor 已打开，并重启 Vibe Light</li>
+            <li>通过无效：检查辅助功能是否勾选正确 App</li>
+            <li>安装被拦：访达中右键脚本 → 打开</li>
+            <li>Win：解压后双击 <strong>安装 Vibe Light.bat</strong>，从开始菜单打开 App</li>
+          </ul>
+        </div>
+        <div class="note-card">
+          <h3>🚦 红绿灯</h3>
+          <ul>
+            <li>🟢 绿 = 空闲 · 无任务</li>
+            <li>🟡 黄 = 执行中 · 你可以做别的事</li>
+            <li>🔴 红 = 待确认 · 等你点确认</li>
+          </ul>
+        </div>
+        <div class="note-card">
+          <h3>💬 反馈</h3>
+          <p>安装包暂时只在 <a href="https://github.com/artistannabelle/vibe-light/releases/latest" target="_blank" rel="noopener">GitHub Releases</a> 提供下载。</p>
+          <p style="margin-top:10px">若希望上架 Mac App Store，或其他建议；<br>请前往 GitHub Issues，觉得有用欢迎 Star。</p>
+          <p style="margin-top:10px"><a href="https://github.com/artistannabelle/vibe-light/issues" target="_blank" rel="noopener">提交 Issue →</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ③ 痛点解法 -->
+  <section id="pain" class="pain-section">
+    <div class="wrap">
+      <p class="section-label">场景 & 痛点</p>
+      <h2 class="section-title">痛点直给，解法直给</h2>
+      <p class="pain-scene">
+        你用 Cursor 让 AI 写代码，窗口却被飞书、浏览器挡住——
+        <strong>你不知道 AI 是在跑、在等你，还是已经停了。</strong>
+      </p>
+
+      <div class="pain-table">
+        <div class="pain-row pain-row--head">
+          <div class="pain-cell">痛点</div>
+          <div class="pain-cell">解法</div>
+        </div>
+        <div class="pain-row">
+          <div class="pain-cell pain-cell--problem">
+            <span class="pain-num">1</span>Cursor 被挡住，看不见 AI 进度
+          </div>
+          <div class="pain-cell pain-cell--solution">屏幕角落悬浮红绿灯，余光可扫</div>
+        </div>
+        <div class="pain-row">
+          <div class="pain-cell pain-cell--problem">
+            <span class="pain-num">2</span>AI 等你授权，没切回去，任务卡住
+          </div>
+          <div class="pain-cell pain-cell--solution">悬浮层红灯一键通过 / 拒绝</div>
+        </div>
+        <div class="pain-row">
+          <div class="pain-cell pain-cell--problem">
+            <span class="pain-num">3</span>每次都要 ⌘+Tab 切回 Cursor 看状态
+          </div>
+          <div class="pain-cell pain-cell--solution">悬浮层 + 菜单栏同步，不用切回 Cursor</div>
+        </div>
+        <div class="pain-row">
+          <div class="pain-cell pain-cell--problem">
+            <span class="pain-num">4</span>Token 花了多少、AI 写了多少行，心里没数
+          </div>
+          <div class="pain-cell pain-cell--solution">悬浮层实时显示 Token、AI 代码行数</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ④ 核心功能 -->
+  <section id="features">
+    <div class="wrap">
+      <p class="section-label">功能</p>
+      <h2 class="section-title">三个能力，覆盖核心场景</h2>
+      <p class="section-desc" style="margin-bottom:28px">置顶可见 → 呼吸灯识状态 → 统计消耗。</p>
+
+      <div class="desktop-demo" aria-label="模拟 macOS 桌面效果">
+        <p class="desktop-demo-caption">模拟桌面效果 · Cursor 在后台运行</p>
+        <div class="desktop-scene">
+          <div class="mac-menubar">
+            <span>飞书</span>
+            <div class="mac-menubar-right">
+              <span>14:32</span>
+              <span class="mac-menubar-light">🟡 Light</span>
+            </div>
+          </div>
+          <div class="desktop-wallpaper">
+            <div class="fake-cursor-win" aria-hidden="true">
+              <div class="fake-win-title">
+                <span class="wd r"></span><span class="wd y"></span><span class="wd g"></span>
+                Cursor — vibe-light
+              </div>
+              <div class="fake-win-body">// Agent 正在修改代码…<br>function handleAuth() { … }</div>
+            </div>
+            <div class="fake-feishu-win" aria-hidden="true">
+              <div class="fake-feishu-title">飞书 · 产品周会</div>
+              <div class="fake-feishu-body">
+                <div class="fake-feishu-line"></div>
+                <div class="fake-feishu-line"></div>
+                <div class="fake-feishu-line"></div>
+                <div class="fake-feishu-line"></div>
+              </div>
+            </div>
+            <div class="desktop-float-bar" aria-hidden="true">
+              <span class="desktop-float-badge">置顶</span>
+              <div class="mock-dots">
+                <div class="mock-dot r"></div>
+                <div class="mock-dot y on"></div>
+                <div class="mock-dot g"></div>
+              </div>
+              <span class="desktop-float-text">执行中 · 修改 index.html</span>
+              <span class="desktop-float-tok">Tok 2.0M</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="features-grid">
+
+        <article class="feat-card">
+          <div class="feat-mock">
+            <div class="mock-layers">
+              <div class="mock-layer mock-layer--back"></div>
+              <div class="mock-layer mock-layer--mid"></div>
+              <div class="mock-layer mock-layer--top">
+                <div class="mock-dots">
+                  <div class="mock-dot r"></div>
+                  <div class="mock-dot y on"></div>
+                  <div class="mock-dot g"></div>
+                </div>
+                <span style="font-size:11px;color:rgba(255,255,255,0.6)">始终在最前</span>
+              </div>
+            </div>
+          </div>
+          <div class="feat-body">
+            <h3>始终置顶悬浮层</h3>
+            <p>贴在屏幕最上层，写文档、开会时余光可扫；可拖拽到顺手位置。</p>
+          </div>
+        </article>
+
+        <article class="feat-card">
+          <div class="feat-mock">
+            <div class="mock-glow-panel">
+              <div class="mock-glow-dots">
+                <div class="mock-glow-dot r"></div>
+                <div class="mock-glow-dot y"></div>
+                <div class="mock-glow-dot g"></div>
+              </div>
+              <div class="mock-auth">
+                <div class="mock-auth-btn yes">✓ 通过</div>
+                <div class="mock-auth-btn no">✗ 拒绝</div>
+              </div>
+            </div>
+          </div>
+          <div class="feat-body">
+            <h3>呼吸灯 · 状态与授权</h3>
+            <p>🟢 空闲 · 🟡 执行中 · 🔴 待确认，以呼吸灯呈现；红灯时可直接点通过 / 拒绝，不用切回 Cursor。</p>
+          </div>
+        </article>
+
+        <article class="feat-card">
+          <div class="feat-mock">
+            <div class="mock-stats">
+              <div class="mock-stat-row"><span>今日 Token</span><span>12,480</span></div>
+              <div class="mock-stat-row"><span>当前会话</span><span>3,210</span></div>
+              <div class="mock-stat-row"><span>AI 生成行</span><span>1,280</span></div>
+            </div>
+          </div>
+          <div class="feat-body">
+            <h3>Token & 代码统计</h3>
+            <p>今日 Token、当前会话、AI 代码行数——消耗一目了然。</p>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ⑤ 收尾 -->
+  <footer class="footer">
+    <div class="footer-glow" aria-hidden="true"></div>
+    <p class="footer-slogan">AI 在干什么，余光就知道。</p>
+    <p class="footer-sub">编程红绿灯 · Vibe Light</p>
+    <div class="footer-actions">
+      <a class="btn btn--primary" href="https://github.com/artistannabelle/vibe-light/releases/latest" target="_blank" rel="noopener">下载</a>
+      <a class="btn btn--ghost" href="https://github.com/artistannabelle/vibe-light" target="_blank" rel="noopener">GitHub 仓库</a>
+    </div>
+    <p class="footer-note">闭源产品 · 本地运行 · 数据留在你的 Mac · Copyright © 2026</p>
+  </footer>
+
+  <!-- Icon -->
+  <svg width="0" height="0" style="position:absolute" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="#0b0f14"/>
+      <ellipse cx="256" cy="280" rx="220" ry="80" fill="#febc2e" opacity="0.06"/>
+      <circle cx="128" cy="256" r="68" fill="#ff5f57"/>
+      <circle cx="128" cy="256" r="68" fill="none" stroke="#ff8a84" stroke-width="6" opacity="0.5"/>
+      <circle cx="118" cy="238" r="16" fill="#fff" opacity="0.3"/>
+      <circle cx="256" cy="256" r="88" fill="#febc2e" opacity="0.18"/>
+      <circle cx="256" cy="256" r="76" fill="#febc2e"/>
+      <circle cx="256" cy="256" r="76" fill="none" stroke="#ffe08a" stroke-width="6" opacity="0.6"/>
+      <circle cx="240" cy="238" r="18" fill="#fff" opacity="0.5"/>
+      <circle cx="384" cy="256" r="68" fill="#28c840"/>
+      <circle cx="384" cy="256" r="68" fill="none" stroke="#7dff96" stroke-width="6" opacity="0.45"/>
+      <circle cx="374" cy="238" r="16" fill="#fff" opacity="0.3"/>
+    </symbol>
+  </svg>
+
+  <script>
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    });
+  </script>
+</body>
+</html>
